@@ -1,7 +1,6 @@
 package com.preparing.job.interview.lesson5hibernate;
 
 
-import java.io.Serializable;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -15,8 +14,8 @@ import lombok.NoArgsConstructor;
 @Table(name = "students")
 @NoArgsConstructor
 @Data
-public class Student implements Serializable {
-  private static final long serialVersionUID = 1L;
+public class Student {
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "id")
