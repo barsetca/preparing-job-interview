@@ -25,6 +25,11 @@ public class Student {
   private String name;
 
   public Student(String name) {
+    this(null, name);
+  }
+
+  public Student(Long id, String name) {
+    this.id = id;
     this.name = name;
   }
 }
