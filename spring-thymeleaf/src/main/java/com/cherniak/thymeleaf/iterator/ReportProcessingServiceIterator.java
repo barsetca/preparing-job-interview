@@ -18,33 +18,56 @@ import org.springframework.transaction.annotation.Transactional;
 @AllArgsConstructor
 @Slf4j
 public class ReportProcessingServiceIterator {
-    private final ReportService reportService;
-    private final FileService fileService;
 
-    @Async
-    @Transactional
-    public Future<Void> processFileAsync(Map<String, String> reportFile, File file) {
-        try {
-            reportFile
-                .forEach((key, value) -> {
-                    try {
-                        log.debug("Processing {}:{}", key, value);
-                        Report r = reportService.findSameReport(value, key);
-                        file.getReports().add(r);
-                    } catch (NullPointerException e) {
-                        log.error("Can't save report with type {} and value {} : {}", key, value, e.getMessage());
-                    }
-                });
-            file.setFileStatus(FileStatus.INWORK);
-            //int size = file.getReports().size();
-            //System.out.println("size " + size);
-            fileService.save(file);
-            log.info("File processed id={}", file.getId());
-        } catch (Exception e) {
-            log.warn("Failed to process file", e);
-            file.setFileStatus(FileStatus.ERROR);
-            fileService.save(file);
-        }
-        return null;
+  private final ReportService reportService;
+  private final FileService fileService;
+
+  @Async
+  @Transactional
+  public Future<Void> processFileAsync(Map<String, String> reportFile, File file) {
+    try {
+      reportFile
+          .forEach((key, value) -> {
+            try {
+              log.debug("Processing {}:{}", key, value);
+              Report r = reportService.findSameReport(value, key);
+              file.getReports().add(r);
+            } catch (NullPointerException e) {
+              log.error("Can't save report with type {} and value {} : {}", key, value,
+                  e.getMessage());
+            }
+          });
+      file.setFileStatus(FileStatus.INWORK);
+      //int size = file.getReports().size();
+      //System.out.println("size " + size);
+      fileService.save(file);
+      log.info("File processed id={}", file.getId());
+    } catch (Exception e) {
+      log.warn("Failed to process file", e);
+      file.setFileStatus(FileStatus.ERROR);
+      fileService.save(file);
     }
+    return null;
+  }
+
+  //@Async
+  @Transactional
+  public Future<Void> processFileAsyncIterator(String key, String value, File file) {
+    try {
+      log.debug("Processing {}:{}", key, value);
+      Report r = reportService.findSameReport(value, key);
+      file.getReports().add(r);
+      file.setFileStatus(FileStatus.INWORK);
+      fileService.save(file);
+      log.info("File processed id={}", file.getId());
+    } catch (NullPointerException e) {
+      log.error("Can't save report with type {} and value {} : {}", key, value, e.getMessage());
+    } catch (Exception e) {
+      log.warn("Failed to process file", e);
+      file.setFileStatus(FileStatus.ERROR);
+      fileService.save(file);
+    }
+    return null;
+  }
+
 }

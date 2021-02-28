@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,28 +38,65 @@ public class AccidentReportServiceIterator {
 //   * @return file id
 //   */
   @Transactional
+ // @Async
   //public String saveXlsFile(MultipartFile multipartFile) {
   public String saveXlsFile() {
     //log.info("Parsing file {}", multipartFile.getOriginalFilename());
     java.io.File fileTest = new java.io.File(
         "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input.xlsx");
-    //FileInputStream inputStream = new FileInputStream(file);
-    try {
-      Map<String, String> parsedFile;
+    //fileWithoutDataTest
+//    java.io.File fileTest = new java.io.File(
+//        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input0line.xlsx");
+
+//    try {
+
       //try (var is = new BufferedInputStream(multipartFile.getInputStream())) {
       try (var is = new BufferedInputStream(new FileInputStream(fileTest))) {
 
-        parsedFile = excelServiceIterator.parseFile(is);
-        parsedFile.forEach((k, v) -> System.out.println(k + " -> " + v));
-      }
+        File file = fileService.create("OriginalFilename");
+        excelServiceIterator.parseFile(is, file);
+        //parsedFile.forEach((k, v) -> System.out.println(k + " -> " + v));
+//      }
      // File file = fileService.create(multipartFile.getOriginalFilename());
-      File file = fileService.create("OriginalFilename");
-      reportProcessingServiceIterator.processFileAsync(parsedFile, file);
+
+      //reportProcessingServiceIterator.processFileAsync(parsedFile, file);
       return String.valueOf(file.getId());
     } catch (IOException e) {
       throw new IllegalArgumentException(e);
     }
   }
+
+  @Transactional
+  // @Async
+  //public String saveXlsFile(MultipartFile multipartFile) {
+  public String saveXlsFileWithoutMap() {
+    //log.info("Parsing file {}", multipartFile.getOriginalFilename());
+    java.io.File fileTest = new java.io.File(
+        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input.xlsx");
+
+    //fileWithoutDataTest
+//    java.io.File fileTest = new java.io.File(
+//        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input0line.xlsx");
+
+//    try {
+
+    //try (var is = new BufferedInputStream(multipartFile.getInputStream())) {
+    try (var is = new BufferedInputStream(new FileInputStream(fileTest))) {
+
+      File file = fileService.create("OriginalFilename");
+      excelServiceIterator.parseExcelWithoutMapping(is, file);
+      //parsedFile.forEach((k, v) -> System.out.println(k + " -> " + v));
+//      }
+      // File file = fileService.create(multipartFile.getOriginalFilename());
+
+      //reportProcessingServiceIterator.processFileAsync(parsedFile, file);
+      return String.valueOf(file.getId());
+    } catch (IOException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+
 
   /**
    * Generate file from database rows
