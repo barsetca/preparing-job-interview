@@ -1,13 +1,20 @@
 package com.cherniak.thymeleaf.iterator;
 
 import com.cherniak.thymeleaf.files.File;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.List;
+import java.util.concurrent.Exchanger;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import javax.xml.parsers.ParserConfigurationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +30,7 @@ import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler.SheetContentsHandl
 import org.apache.poi.xssf.model.StylesTable;
 import org.apache.poi.xssf.usermodel.XSSFComment;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -66,7 +74,7 @@ public class ExcelServiceIterator {
    */
 
   public void parseFile(InputStream inputStream, File file) throws IOException {
-    AtomicBoolean isNotDataLine = new AtomicBoolean(true);
+    AtomicBoolean dataNotExist = new AtomicBoolean(true);
     try {
       OPCPackage xlsxPackage = OPCPackage.open(inputStream);
       ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(xlsxPackage);
@@ -74,21 +82,25 @@ public class ExcelServiceIterator {
       StylesTable styles = xssfReader.getStylesTable();
       XSSFReader.SheetIterator iter = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
       try (InputStream stream = iter.next()) {
-        processSheet(styles, strings, new SheetContentsMapperIterator(reportProcessingServiceIterator, file, isNotDataLine), stream);
+        processSheet(styles, strings,
+            new SheetContentsMapperIterator(reportProcessingServiceIterator, file, dataNotExist),
+            stream);
       }
     } catch (OpenXML4JException | SAXException e) {
       e.printStackTrace();
     }
-
-      System.out.println("isNotDataLine for IllegalArgumentException = " + isNotDataLine.get());
-
+    System.out.println("isNotDataLine for IllegalArgumentException = " + dataNotExist.get());
+    if (dataNotExist.get()) {
+      throw new IllegalArgumentException("0 record(s) in file");
+    }
+  }
 
 //    int size = result.keySet().size();
 //    log.info("Found {} record(s) in file", size);
 //    if (size == 0) {
 //      throw new IllegalArgumentException(size + " record(s) in file");
 //    }
-  }
+
 
   private void processSheet(
       StylesTable styles,
@@ -115,64 +127,63 @@ public class ExcelServiceIterator {
   public void parseExcelWithoutMapping(InputStream inputStream, File file) throws IOException {
 
     var dataNotExist = new AtomicBoolean(true);
-    try {
-      OPCPackage xlsxPackage = OPCPackage.open(inputStream);
+    try(OPCPackage xlsxPackage = OPCPackage.open(inputStream)) {
       ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(xlsxPackage);
       var xssfReader = new XSSFReader(xlsxPackage);
       StylesTable styles = xssfReader.getStylesTable();
       XSSFReader.SheetIterator iter = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
       try (InputStream stream = iter.next()) {
-          processSheetWithoutMapping(styles, strings, new SheetContentsHandler() {
-            int lineNumber;
-            String value;
+        processSheetWithoutMapping(styles, strings, new SheetContentsHandler() {
+          int lineNumber;
+          String value;
 
-            @Override
-            public void startRow(int i) {
-              lineNumber = i;
-            }
+          @Override
+          public void startRow(int i) {
+            lineNumber = i;
+          }
 
-            @Override
-            public void endRow(int i) {
-            }
+          @Override
+          public void endRow(int i) {
+          }
 
-            @Override
-            public void cell(String cellReference, String cellValue, XSSFComment comment) {
-              int columnIndex = (new CellReference(cellReference)).getCol();
-              if (lineNumber > 0) {
-                if (lineNumber == 1) {
-                  dataNotExist.set(false);
-                }
-                switch (columnIndex) {
-                  case 0: {
-                    if (cellValue != null && !cellValue.isEmpty()) {
-                      value = cellValue;
-                    }
+          @Override
+          public void cell(String cellReference, String cellValue, XSSFComment comment) {
+            int columnIndex = (new CellReference(cellReference)).getCol();
+            if (lineNumber > 0) {
+              if (lineNumber == 1) {
+                dataNotExist.set(false);
+              }
+              switch (columnIndex) {
+                case 0: {
+                  if (cellValue != null && !cellValue.isEmpty()) {
+                    value = cellValue;
                   }
-                  break;
-                  case 1: {
-                    if (cellValue != null && !cellValue.isEmpty()) {
-                      reportProcessingServiceIterator.processFileAsyncIterator(cellValue, value, file);
-                    }
-                  }
-                  break;
-                  default:
                 }
+                break;
+                case 1: {
+                  if (cellValue != null && !cellValue.isEmpty()) {
+                    reportProcessingServiceIterator
+                        .processFileAsyncIterator(cellValue, value, file);
+                  }
+                }
+                break;
+                default:
               }
             }
+          }
 
-            @Override
-            public void headerFooter(String s, boolean b, String s1) {
-
-            }
-          }, stream);
-        }
-
+          @Override
+          public void headerFooter(String s, boolean b, String s1) {
+          }
+        }, stream);
+      }
     } catch (OpenXML4JException | SAXException e) {
       e.printStackTrace();
     }
 
-    System.out.println("isNotDataLine for IllegalArgumentException = " + dataNotExist.get());
-
+    if (dataNotExist.get()) {
+      throw new IllegalArgumentException("0 record(s) in file");
+    }
   }
 
   //with anonymous SheetContentsHandler
@@ -180,9 +191,15 @@ public class ExcelServiceIterator {
       StylesTable styles,
       ReadOnlySharedStringsTable strings,
       SheetContentsHandler sheetContentsHandler,
-      InputStream sheetInputStream) throws IOException, SAXException {
+      InputStream sheetInputStream
+  ) throws IOException, SAXException {
     var formatter = new DataFormatter();
     var sheetSource = new InputSource(sheetInputStream);
+
+//    System.out.println("sheetContentsHandler=" + sheetContentsHandler);
+//    System.out.println("sheetSource=" + sheetSource.isEmpty());
+//    System.out.println("strings=" + strings.getUniqueCount());
+
     try {
       XMLReader sheetParser = SAXHelper.newXMLReader();
       ContentHandler handler = new XSSFSheetXMLHandler(
@@ -193,13 +210,6 @@ public class ExcelServiceIterator {
       throw new RuntimeException("SAX parser appears to be broken - " + e.getMessage());
     }
   }
-
-
-
-
-
-
-
 
 //  /**
 //   * generate file
@@ -307,4 +317,166 @@ public class ExcelServiceIterator {
       log.warn("Can't delete file", e);
     }
   }
+
+  //@Transactional
+  public void parseExcelWithoBiConsumer(
+      BufferedInputStream inputStream,
+      Exchanger<Boolean> exchangerIsEmptyTable,
+      BiConsumer<String, String> consumer
+  ) throws IOException{
+    var dataNotExist = new AtomicBoolean(true);
+    try(OPCPackage xlsxPackage = OPCPackage.open(inputStream);) {
+      ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(xlsxPackage);
+      var xssfReader = new XSSFReader(xlsxPackage);
+      StylesTable styles = xssfReader.getStylesTable();
+      XSSFReader.SheetIterator iter = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
+      try (InputStream stream = iter.next()) {
+        processSheetWithoutMapping(styles, strings, new SheetContentsHandler() {
+          int lineNumber;
+          String value;
+
+          @Override
+          public void startRow(int i) {
+            lineNumber = i;
+          }
+
+          @Override
+          public void endRow(int i) {
+          }
+
+          @Override
+          public void cell(String cellReference, String cellValue, XSSFComment comment) {
+
+            int columnIndex = (new CellReference(cellReference)).getCol();
+            if (lineNumber > 0) {
+              if (lineNumber == 1 && columnIndex == 0) {
+                dataNotExist.set(false);
+                try {
+                  exchangerIsEmptyTable.exchange(false, 1, TimeUnit.MINUTES);
+                } catch (InterruptedException | TimeoutException e) {
+                  log.warn("Failed parseFile from exchanger", e);
+                }
+              }
+              switch (columnIndex) {
+                case 0: {
+                  if (cellValue != null && !cellValue.isEmpty()) {
+                    value = cellValue;
+                  }
+                }
+                break;
+                case 1: {
+                  if (cellValue != null && !cellValue.isEmpty()) {
+                    consumer.accept(cellValue, value);
+                  }
+                }
+                break;
+                default:
+                  log.info("Data from nineNumber = {} and columnIndex = {} ignored", lineNumber, columnIndex);
+                  break;
+              }
+            }
+          }
+
+          @Override
+          public void headerFooter(String s, boolean b, String s1) {
+          }
+        }, stream);
+      }
+    } catch (OpenXML4JException | SAXException e) {
+      e.printStackTrace();
+    }
+
+    if (dataNotExist.get()) {
+      log.warn("0 record(s) in file");
+      try {
+        exchangerIsEmptyTable.exchange(true, 1, TimeUnit.MINUTES);
+        throw new IllegalArgumentException("0 record(s) in file");
+      } catch (InterruptedException | TimeoutException e) {
+        log.warn("0 record(s) in file exception" , e);
+        throw new IllegalArgumentException(e);
+      }
+    }
+  }
+
+  public void parseExcelWithoBiConsumer2(BufferedInputStream inputStream, File file,
+      BiConsumer<String, String> consumer) throws IOException {
+
+    var dataNotExist = new AtomicBoolean(true);
+    try {
+      OPCPackage xlsxPackage = OPCPackage.open(inputStream);
+      ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(xlsxPackage);
+      var xssfReader = new XSSFReader(xlsxPackage);
+      StylesTable styles = xssfReader.getStylesTable();
+      XSSFReader.SheetIterator iter = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
+      ExecutorService executorService = Executors.newSingleThreadExecutor();
+      try (InputStream stream = iter.next()) {
+        processSheetWithoutMapping(styles, strings, new SheetContentsHandler() {
+          int lineNumber;
+          String value;
+
+          @Override
+          public void startRow(int i) {
+            //System.out.println("startRow = " + i);
+            lineNumber = i;
+          }
+
+          @Override
+          public void endRow(int i) {
+            //System.out.println("endRow = " + i);
+          }
+
+          @Override
+          public void cell(String cellReference, String cellValue, XSSFComment comment) {
+            int columnIndex = (new CellReference(cellReference)).getCol();
+            //System.out.println(
+//                "cell columnIndex =" + columnIndex + " cellValue =" + cellValue + " XSSFComment="
+//                    + comment);
+            if (lineNumber > 0) {
+              if (lineNumber == 1) {
+                dataNotExist.set(false);
+              }
+              switch (columnIndex) {
+                case 0: {
+                  if (cellValue != null && !cellValue.isEmpty()) {
+                    value = cellValue;
+                  }
+                }
+                break;
+                case 1: {
+                  if (cellValue != null && !cellValue.isEmpty()) {
+                    executorService.execute(new Runnable() {
+                      @Override
+                      public void run() {
+                        consumer.accept(cellValue, value);
+                      }
+                    });
+
+//                    reportProcessingServiceIterator
+//                        .processFileAsyncIterator(cellValue, value, file);
+                  }
+                }
+                break;
+                default:
+              }
+            }
+          }
+
+          @Override
+          public void headerFooter(String s, boolean b, String s1) {
+            //System.out.println("headerFooter() s=" + s + " b=" + b + " s1=" + s1);
+          }
+        }, stream);
+      }
+    } catch (OpenXML4JException | SAXException e) {
+      e.printStackTrace();
+    }
+
+    if (dataNotExist.get()) {
+      log.warn("0 record(s) in file");
+//      file.setFileStatus(FileStatus.ERROR);
+      throw new IllegalArgumentException("0 record(s) in file");
+    }
+
+  }
 }
+
