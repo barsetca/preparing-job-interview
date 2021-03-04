@@ -51,7 +51,7 @@ public class FileController {
 
   @GetMapping("/finish")
   public String parseConsumer2() {
-    return accidentReportServiceFinish.saveXlsFile();
+    return accidentReportServiceFinish.saveXlsFileAlexanderThread();
   }
 
 }

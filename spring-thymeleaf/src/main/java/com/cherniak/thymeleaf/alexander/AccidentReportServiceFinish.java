@@ -10,9 +10,12 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Exchanger;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -46,9 +49,50 @@ public class AccidentReportServiceFinish {
    * @param
    * @return file id
    */
+//  @Transactional
+//  //public String saveXlsFile(MultipartFile multipartFile) {
+//  public String saveXlsFile() {
+//
+//    java.io.File fileTest = new java.io.File(
+//        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input.xlsx");
+////    java.io.File fileTest = new java.io.File(
+////        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input0line.xlsx");
+//    String fileName = fileTest.getName();
+//    log.info("Parsing file {}", fileName);
+//    try (var is = new BufferedInputStream(new FileInputStream(fileTest))) {
+//      Exchanger<Boolean> exchangerIsEmptyTable = new Exchanger<>();
+//      File file = fileService.create(fileName);
+//      ExecutorService executorService = Executors.newSingleThreadExecutor();
+//      executorService.execute(() -> {
+//        try {
+//          excelService.parseFile(
+//              is,
+//              exchangerIsEmptyTable,
+//              (key, value) -> reportProcessingService.processFile(key, value, file));
+//          file.setFileStatus(FileStatus.INWORK);
+//          fileService.save(file);
+//          log.info("File processed id={}", file.getId());
+//        } catch (IOException e) {
+//          log.warn("Failed to process fileName = {}", fileName, e);
+//          file.setFileStatus(FileStatus.ERROR);
+//          fileService.save(file);
+//        }
+//      });
+//      executorService.shutdown();
+//
+//      if (exchangerIsEmptyTable.exchange(null, 1, TimeUnit.MINUTES)) {
+//        throw new IllegalArgumentException("0 record(s) in file");
+//      }
+//
+//      return String.valueOf(file.getId());
+//    } catch (IOException | InterruptedException | TimeoutException e) {
+//      throw new IllegalArgumentException(e);
+//    }
+//  }
+
   @Transactional
   //public String saveXlsFile(MultipartFile multipartFile) {
-  public String saveXlsFile() {
+  public String saveXlsFileAlexander() {
 
     java.io.File fileTest = new java.io.File(
         "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input.xlsx");
@@ -57,15 +101,42 @@ public class AccidentReportServiceFinish {
     String fileName = fileTest.getName();
     log.info("Parsing file {}", fileName);
     try (var is = new BufferedInputStream(new FileInputStream(fileTest))) {
-      Exchanger<Boolean> exchangerIsEmptyTable = new Exchanger<>();
       File file = fileService.create(fileName);
+      var data = new HashMap<String, String>();
+          excelService.parseFileAlexander(is, data::put);
+      if (data.isEmpty()) {
+        throw new IllegalArgumentException("0 record(s) in file");
+      }
+      reportProcessingService.processFileAlexander(data, file);
+      return String.valueOf(file.getId());
+    } catch (IOException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+  @Transactional
+  //public String saveXlsFile(MultipartFile multipartFile) {
+  public String saveXlsFileAlexanderThread() {
+
+    java.io.File fileTest = new java.io.File(
+        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input.xlsx");
+//    java.io.File fileTest = new java.io.File(
+//        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input1line.xlsx");
+    String fileName = fileTest.getName();
+    log.info("Parsing file {}", fileName);
+    try (var is = new BufferedInputStream(new FileInputStream(fileTest))) {
+      File file = fileService.create(fileName);
+      var isEmpty = new CompletableFuture<Boolean>();
       ExecutorService executorService = Executors.newSingleThreadExecutor();
       executorService.execute(() -> {
         try {
-          excelService.parseFile(
+          excelService.parseFileAlexanderThread(
               is,
-              exchangerIsEmptyTable,
-              (key, value) -> reportProcessingService.processFile(key, value, file));
+              (key, value) -> {
+                reportProcessingService.processFileThread(key, value, file);
+              },
+              isEmpty
+          );
           file.setFileStatus(FileStatus.INWORK);
           fileService.save(file);
           log.info("File processed id={}", file.getId());
@@ -77,15 +148,37 @@ public class AccidentReportServiceFinish {
       });
       executorService.shutdown();
 
-      if (exchangerIsEmptyTable.exchange(null, 1, TimeUnit.MINUTES)) {
+//      new Thread(new Runnable() {
+//        @Override
+//        public void run() {
+//          try {
+//            excelService.parseFileAlexanderThread(
+//                is,
+//                (key, value) -> {
+//              reportProcessingService.processFileThread(key, value, file);
+//            },
+//                isEmpty
+//            );
+//            file.setFileStatus(FileStatus.INWORK);
+//            fileService.save(file);
+//            log.info("File processed id={}", file.getId());
+//          } catch (IOException e) {
+//            e.printStackTrace();
+//          }
+//        }
+//      }).start();
+
+//      if (data.isEmpty()) {
+//        throw new IllegalArgumentException("0 record(s) in file");
+//      }
+      //reportProcessingService.processFileAlexander(data, file);
+      if (isEmpty.get(10, TimeUnit.SECONDS)){
         throw new IllegalArgumentException("0 record(s) in file");
       }
-
+      log.info("Main finished {}", Thread.currentThread().getName());
       return String.valueOf(file.getId());
-    } catch (IOException | InterruptedException | TimeoutException e) {
+    } catch (IOException | InterruptedException | ExecutionException | TimeoutException e) {
       throw new IllegalArgumentException(e);
     }
   }
-
-
 }

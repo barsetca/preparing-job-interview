@@ -1,12 +1,9 @@
 package com.cherniak.thymeleaf.alexander;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
-import java.util.concurrent.Exchanger;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import javax.xml.parsers.ParserConfigurationException;
@@ -22,9 +19,7 @@ import org.apache.poi.xssf.eventusermodel.XSSFReader;
 import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler;
 import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler.SheetContentsHandler;
 import org.apache.poi.xssf.model.StylesTable;
-
 import org.apache.poi.xssf.usermodel.XSSFComment;
-
 import org.springframework.stereotype.Service;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.InputSource;
@@ -57,90 +52,211 @@ public class ExcelServiceFinish {
       "Описание ошибки");
 
 
-  /**
-   * parse file
-   *
-   * @param inputStream is
-   * @param exchangerIsEmptyTable Exchanger<Boolean> true if table is Empty
-   * @param consumer BiConsumer for processing
-   * @throws IOException ex from POI and SAX
-   */
-  public void parseFile(
-      BufferedInputStream inputStream,
-      Exchanger<Boolean> exchangerIsEmptyTable,
-      BiConsumer<String, String> consumer
+
+//  public void parseFile(
+//      BufferedInputStream inputStream,
+//      Exchanger<Boolean> exchangerIsEmptyTable,
+//      BiConsumer<String, String> consumer
+//  ) throws IOException {
+//    var dataNotExist = new AtomicBoolean(true);
+//    try(OPCPackage xlsxPackage = OPCPackage.open(inputStream)) {
+//      ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(xlsxPackage);
+//      var xssfReader = new XSSFReader(xlsxPackage);
+//      StylesTable styles = xssfReader.getStylesTable();
+//      XSSFReader.SheetIterator iter = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
+//      try (InputStream stream = iter.next()) {
+//        processSheet(styles, strings, new SheetContentsHandler() {
+//          int lineNumber;
+//          String value;
+//
+//          @Override
+//          public void startRow(int i) {
+//            lineNumber = i;
+//          }
+//
+//          @Override
+//          public void endRow(int i) {
+//          }
+//
+//          @Override
+//          public void cell(String cellReference, String cellValue, XSSFComment comment) {
+//            int columnIndex = (new CellReference(cellReference)).getCol();
+//            if (lineNumber > 0) {
+//              if (lineNumber == 1 && columnIndex == 0) {
+//                dataNotExist.set(false);
+//                try {
+//                  exchangerIsEmptyTable.exchange(false, 1, TimeUnit.MINUTES);
+//                } catch (InterruptedException | TimeoutException e) {
+//                  log.warn("Failed parseFile from exchanger", e);
+//                }
+//              }
+//              switch (columnIndex) {
+//                case 0: {
+//                  if (cellValue != null && !cellValue.isEmpty()) {
+//                    value = cellValue;
+//                  }
+//                }
+//                break;
+//                case 1: {
+//                  if (cellValue != null && !cellValue.isEmpty()) {
+//                    consumer.accept(cellValue, value);
+//                  }
+//                }
+//                break;
+//                default:
+//                  log.info("Data from nineNumber = {} and columnIndex = {} ignored", lineNumber, columnIndex);
+//                  break;
+//              }
+//            }
+//          }
+//
+//          @Override
+//          public void headerFooter(String s, boolean b, String s1) {
+//          }
+//        }, stream);
+//      }
+//    } catch (OpenXML4JException | SAXException e) {
+//      e.printStackTrace();
+//    }
+//
+//    if (dataNotExist.get()) {
+//      try {
+//        log.warn("0 record(s) in file");
+//        exchangerIsEmptyTable.exchange(true, 1, TimeUnit.MINUTES);
+//        throw new IllegalArgumentException("0 record(s) in file");
+//      } catch (InterruptedException | TimeoutException e) {
+//        log.warn("0 record(s) in file exception" , e);
+//        throw new IllegalArgumentException(e);
+//      }
+//    }
+//  }
+  public void parseFileAlexander(
+      InputStream inputStream,
+      BiConsumer<String, String> onRow
   ) throws IOException {
-    var dataNotExist = new AtomicBoolean(true);
-    try(OPCPackage xlsxPackage = OPCPackage.open(inputStream)) {
-      ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(xlsxPackage);
+    //var dataNotExist = new AtomicBoolean(true);
+    try (var xlsxPackage = OPCPackage.open(inputStream)) {
+      var strings = new ReadOnlySharedStringsTable(xlsxPackage);
       var xssfReader = new XSSFReader(xlsxPackage);
-      StylesTable styles = xssfReader.getStylesTable();
-      XSSFReader.SheetIterator iter = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
-      try (InputStream stream = iter.next()) {
-        processSheet(styles, strings, new SheetContentsHandler() {
-          int lineNumber;
-          String value;
+      var styles = xssfReader.getStylesTable();
+      var iter = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
+      try (var stream = iter.next()) {
+        processSheet(
+            styles,
+            strings,
+            new SheetContentsHandler() {
+              int currentRow;
+              String value;
+              String key;
 
-          @Override
-          public void startRow(int i) {
-            lineNumber = i;
-          }
+              @Override
+              public void startRow(int i) {
+                key = null;
+                value = null;
+                currentRow = i;
+              }
 
-          @Override
-          public void endRow(int i) {
-          }
-
-          @Override
-          public void cell(String cellReference, String cellValue, XSSFComment comment) {
-            int columnIndex = (new CellReference(cellReference)).getCol();
-            if (lineNumber > 0) {
-              if (lineNumber == 1 && columnIndex == 0) {
-                dataNotExist.set(false);
-                try {
-                  exchangerIsEmptyTable.exchange(false, 1, TimeUnit.MINUTES);
-                } catch (InterruptedException | TimeoutException e) {
-                  log.warn("Failed parseFile from exchanger", e);
+              @Override
+              public void endRow(int i) {
+                if (key != null && value != null) {
+                  onRow.accept(key, value);
                 }
               }
-              switch (columnIndex) {
-                case 0: {
-                  if (cellValue != null && !cellValue.isEmpty()) {
+
+              @Override
+              public void cell(String cellReference, String cellValue, XSSFComment comment) {
+
+                if (currentRow > 0) {
+                  int columnIndex = (new CellReference(cellReference)).getCol();
+                  if (currentRow == 1 && columnIndex == 0) {
+                  }
+                  if (columnIndex == 0) { //Type
                     value = cellValue;
+                  } else if (columnIndex == 1) { //Id
+                    key = cellValue;
                   }
                 }
-                break;
-                case 1: {
-                  if (cellValue != null && !cellValue.isEmpty()) {
-                    consumer.accept(cellValue, value);
-                  }
-                }
-                break;
-                default:
-                  log.info("Data from nineNumber = {} and columnIndex = {} ignored", lineNumber, columnIndex);
-                  break;
               }
-            }
-          }
 
-          @Override
-          public void headerFooter(String s, boolean b, String s1) {
-          }
-        }, stream);
+              @Override
+              public void headerFooter(String s, boolean b, String s1) {
+              }
+            }, stream);
       }
     } catch (OpenXML4JException | SAXException e) {
       e.printStackTrace();
     }
+  }
 
-    if (dataNotExist.get()) {
-      try {
-        log.warn("0 record(s) in file");
-        exchangerIsEmptyTable.exchange(true, 1, TimeUnit.MINUTES);
-        throw new IllegalArgumentException("0 record(s) in file");
-      } catch (InterruptedException | TimeoutException e) {
-        log.warn("0 record(s) in file exception" , e);
-        throw new IllegalArgumentException(e);
+
+  public void parseFileAlexanderThread(
+      InputStream inputStream,
+      BiConsumer<String, String> onRow,
+      CompletableFuture<Boolean> isValid
+  ) throws IOException {
+    var dataNotExist = new AtomicBoolean(true);
+    try (var xlsxPackage = OPCPackage.open(inputStream)) {
+      var strings = new ReadOnlySharedStringsTable(xlsxPackage);
+      var xssfReader = new XSSFReader(xlsxPackage);
+      var styles = xssfReader.getStylesTable();
+      var iter = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
+      try (var stream = iter.next()) {
+        processSheet(
+            styles,
+            strings,
+            new SheetContentsHandler() {
+              int currentRow;
+              String value;
+              String key;
+
+              @Override
+              public void startRow(int i) {
+                key = null;
+                value = null;
+                currentRow = i;
+              }
+
+              @Override
+              public void endRow(int i) {
+                if (key != null && value != null) {
+                  onRow.accept(key, value);
+                }
+              }
+
+              @Override
+              public void cell(String cellReference, String cellValue, XSSFComment comment) {
+
+                if (currentRow > 0) {
+                  int columnIndex = (new CellReference(cellReference)).getCol();
+                  if (currentRow == 1 && columnIndex == 0) {
+                    dataNotExist.set(false);
+                    isValid.complete(false);
+                  }
+                  if (columnIndex == 0) { //Type
+                    value = cellValue;
+                  } else if (columnIndex == 1) { //Id
+                    key = cellValue;
+                  }
+                }
+              }
+
+              @Override
+              public void headerFooter(String s, boolean b, String s1) {
+              }
+            },
+            stream
+        );
+
       }
+    } catch (OpenXML4JException | SAXException e) {
+      log.error("Error from row parser", e);
     }
+    if (dataNotExist.get()) {
+      log.warn("0 record(s) in file");
+      isValid.complete(true);
+      throw new IllegalArgumentException("0 record(s) in file");
+    }
+    log.info("Parsing finished {}", Thread.currentThread().getName());
   }
 
   private void processSheet(
