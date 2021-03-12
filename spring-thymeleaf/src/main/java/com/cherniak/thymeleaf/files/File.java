@@ -19,6 +19,7 @@ import javax.persistence.OneToMany;
 import javax.persistence.Table;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
@@ -32,6 +33,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @Entity
 @Data
 @Table(name = "FILE")
+@NoArgsConstructor
 public class File {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -57,4 +59,13 @@ public class File {
     )
     @BatchSize(size = 64)
     private List<Report> reports = new ArrayList<>();
+
+    public void addReport(Report report){
+        reports.add(report);
+    }
+
+    public File(Integer id, String name) {
+        this.id = id;
+        this.name = name;
+    }
 }

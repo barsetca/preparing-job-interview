@@ -18,6 +18,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.openxml4j.exceptions.OpenXML4JException;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.util.SAXHelper;
 import org.apache.poi.xssf.eventusermodel.ReadOnlySharedStringsTable;
 import org.apache.poi.xssf.eventusermodel.XSSFReader;
@@ -115,6 +117,25 @@ public class ExcelService {
       throw new RuntimeException("SAX parser appears to be broken - " + e);
     }
   }
+
+//  public Map<String, String> parseFileSource(InputStream inputStream) throws IOException {
+//    Sheet sheet = new XSSFWorkbook(inputStream).getSheetAt(0);
+//    Map<String, String> result = new HashMap<>();
+//    for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+//      Row r = sheet.getRow(i);
+//      if (r.getCell(0) == null || r.getCell(1) == null) {
+//        break;
+//      }
+//      result.put(r.getCell(1).getStringCellValue(), r.getCell(0).getStringCellValue());
+//    }
+//
+//    int size = result.keySet().size();
+//    log.info("Found {} record(s) in file", size);
+//    if (size == 0) {
+//      throw new IllegalArgumentException(size + " record(s) in file");
+//    }
+//    return result;
+//  }
 
 //  /**
 //   * generate file

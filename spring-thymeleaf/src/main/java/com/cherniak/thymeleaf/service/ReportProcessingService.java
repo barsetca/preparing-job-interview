@@ -40,6 +40,7 @@ public class ReportProcessingService {
             //System.out.println("size " + size);
             fileService.save(file);
             log.info("File processed id={}", file.getId());
+
         } catch (Exception e) {
             log.warn("Failed to process file", e);
             file.setFileStatus(FileStatus.ERROR);

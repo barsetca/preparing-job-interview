@@ -51,7 +51,13 @@ public class FileService {
     }
 
     public File save(File file) {
+
         return fileRepository.save(file);
+    }
+
+    public File saveFlush(File file) {
+
+        return fileRepository.saveAndFlush(file);
     }
 
     public long getNotProcessedReportsCount(Integer fileId) {

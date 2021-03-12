@@ -18,3 +18,34 @@ spring:
       enabled: true
       settings:
         web-allow-others: false
+
+egarant:
+  retries:
+    initial-delay: 1s
+    long-delay: 10s
+    transition-time: 1m
+    tries: 2147483647
+
+#    initial-delay: 5s
+#      long-delay: 30s
+#      transition-time: 5m
+
+
+eosago:
+  retries:
+    delay: 30s
+    tries: 2147483647
+
+diasoft-db:
+  retries:
+    delay: 30s
+    tries: 2147483647
+
+
+
+inner-db:
+  retries:
+    delay: 10s
+    tries: 2147483647
+
+#    delay: 30s
