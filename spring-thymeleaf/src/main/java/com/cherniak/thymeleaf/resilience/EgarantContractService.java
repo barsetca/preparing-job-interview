@@ -83,7 +83,7 @@ public class EgarantContractService {
                   3 -> Failure(org.springframework.web.client.HttpServerErrorException: 500 INTERNAL_SERVER_ERROR)
                    */
 
-//                  throw new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE); // вкл повтор
+                  throw new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE); // вкл повтор
 
                   // throw new ResourceAccessException(String.format("0 record(s) in file or invalid format of id: %d", id)); // вкл повтор
                 }

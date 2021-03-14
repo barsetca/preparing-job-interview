@@ -12,6 +12,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.ws.rs.ProcessingException;
 import javax.ws.rs.ServerErrorException;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.ConcurrencyFailureException;
@@ -72,6 +74,128 @@ public class AccidentReportServiceRetry {
         //throw new ResourceAccessException(String.format("0 record(s) in file or invalid format of file: %s", file.getName())); //sago = egarantRetry
 //        throw new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE); // osago = egarantRetry infinity
         // throw new HttpServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR); //osago = egarantRetry at once
+      }
+
+
+      log.info("Main finished {}", Thread.currentThread().getName());
+      return String.valueOf(file.getId());
+
+    } catch (IOException | InterruptedException | ExecutionException | TimeoutException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+  @Transactional
+  public String saveXlsFileEgarantRetry() {
+
+//    java.io.File multipartFile = new java.io.File(
+//        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input.xlsx");
+
+//    java.io.File multipartFile = new java.io.File(
+//        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\text.txt");
+
+    java.io.File multipartFile = new java.io.File(
+        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input1line.xlsx");
+    String fileName = multipartFile.getName();
+    log.info("Parsing file {}", fileName);
+
+    try (var is = new BufferedInputStream(new FileInputStream(multipartFile))) {
+//            if (fileName.equals("input.xlsx")){
+//        throw new IOException("My custom IOException");
+//      }
+      File file = fileService.create(fileName);
+      var isEmpty = new CompletableFuture<Boolean>();
+      reportProcessingService.parseProcess(is, file, isEmpty);
+
+      if (isEmpty.get(10, TimeUnit.SECONDS)) {
+//        throw new IllegalArgumentException(
+//            String.format("0 record(s) in file or invalid format of file: %s", file.getName()));
+
+        //throw new ResourceAccessException(String.format("0 record(s) in file or invalid format of file: %s", file.getName())); // osago = egarantRetry
+        throw new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE); // osago = egarantRetry infinity
+//         throw new HttpServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR); //osago = egarantRetry at once
+      }
+
+
+      log.info("Main finished {}", Thread.currentThread().getName());
+      return String.valueOf(file.getId());
+
+    } catch (IOException | InterruptedException | ExecutionException | TimeoutException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+  @Transactional
+   public String saveXlsFileDbRetry() {
+
+//    java.io.File multipartFile = new java.io.File(
+//        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input.xlsx");
+
+//    java.io.File multipartFile = new java.io.File(
+//        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\text.txt");
+
+    java.io.File multipartFile = new java.io.File(
+        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input1line.xlsx");
+    String fileName = multipartFile.getName();
+    log.info("Parsing file {}", fileName);
+
+    try (var is = new BufferedInputStream(new FileInputStream(multipartFile))) {
+//            if (fileName.equals("input.xlsx")){
+//        throw new IOException("My custom IOException");
+//      }
+      File file = fileService.create(fileName);
+      var isEmpty = new CompletableFuture<Boolean>();
+      reportProcessingService.parseProcess(is, file, isEmpty);
+
+      if (isEmpty.get(10, TimeUnit.SECONDS)) {
+        throw new IllegalArgumentException(
+            String.format("0 record(s) in file or invalid format of file: %s", file.getName()));
+
+//        throw new NullPointerException(
+//            String.format("0 record(s) in file or invalid format of file: %s", file.getName()));
+       //throw new ConcurrencyFailureException(String.format("0 record(s) in file or invalid format of file: %s", file.getName())); //databaseRetry extends TransientDataAccessException
+      }
+      log.info("Main finished {}", Thread.currentThread().getName());
+      return String.valueOf(file.getId());
+
+    } catch (IOException | InterruptedException | ExecutionException | TimeoutException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+  @Transactional
+  public String saveXlsFileB2bRetry() {
+
+//    java.io.File multipartFile = new java.io.File(
+//        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input.xlsx");
+
+//    java.io.File multipartFile = new java.io.File(
+//        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\text.txt");
+
+    java.io.File multipartFile = new java.io.File(
+        "C:\\newprojects\\preparing-job-interview\\spring-thymeleaf\\input1line.xlsx");
+    String fileName = multipartFile.getName();
+    log.info("Parsing file {}", fileName);
+
+    try (var is = new BufferedInputStream(new FileInputStream(multipartFile))) {
+//            if (fileName.equals("input.xlsx")){
+//        throw new IOException("My custom IOException");
+//      }
+      File file = fileService.create(fileName);
+      var isEmpty = new CompletableFuture<Boolean>();
+      reportProcessingService.parseProcess(is, file, isEmpty);
+
+      if (isEmpty.get(10, TimeUnit.SECONDS)) {
+        throw new IllegalArgumentException(
+            String.format("0 record(s) in file or invalid format of file: %s", file.getName()));
+
+//       throw new ProcessingException(String.format("ProcessingException 0 record(s) in file or invalid format of file: %s", file.getName()));
+
+//        throw new ServerErrorException(Status.SERVICE_UNAVAILABLE);
+
+//        throw new NullPointerException(
+//            String.format("0 record(s) in file or invalid format of file: %s", file.getName()));
+
       }
 
 

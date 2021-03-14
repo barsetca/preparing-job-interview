@@ -30,11 +30,27 @@ egarant:
 #      long-delay: 30s
 #      transition-time: 5m
 
+#custom
+
+garant:
+ retries:
+   initial-delay: 1s
+   long-delay: 10s
+   transition-time: 1m
+   tries: 2147483647
+
+
 
 eosago:
   retries:
     delay: 30s
     tries: 2147483647
+
+#custom
+osago:
+ retries:
+   delay: 30s
+   tries: 2147483647
 
 diasoft-db:
   retries:

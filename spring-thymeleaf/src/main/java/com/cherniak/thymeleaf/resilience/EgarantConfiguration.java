@@ -32,7 +32,6 @@ import org.springframework.web.client.ResourceAccessException;
 
 
 @Configuration
-@EnableRetry
 public class EgarantConfiguration {
 
   @Autowired
@@ -141,7 +140,7 @@ public class EgarantConfiguration {
     return Retry.of(
         "db",
         RetryConfig.custom()
-            .maxAttempts(times + 4) //1
+            .maxAttempts(times + 1) //1
             .waitDuration(delay)
             .retryExceptions(TransientDataAccessException.class)
             .build()

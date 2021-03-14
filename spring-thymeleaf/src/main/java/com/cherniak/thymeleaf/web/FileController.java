@@ -4,6 +4,7 @@ import com.cherniak.thymeleaf.alexander.AccidentReportServiceFinish;
 import com.cherniak.thymeleaf.files.File;
 import com.cherniak.thymeleaf.iterator.AccidentReportServiceIterator;
 import com.cherniak.thymeleaf.resilience.EgarantContractService;
+import com.cherniak.thymeleaf.retryspring.SpringEgarantContractService;
 import com.cherniak.thymeleaf.service.AccidentReportService;
 import io.vavr.control.Try;
 import java.util.Map;
@@ -24,6 +25,7 @@ public class FileController {
   private final AccidentReportServiceIterator accidentReportServiceIterator;
   private final AccidentReportServiceFinish accidentReportServiceFinish;
   private final EgarantContractService egarantContractService;
+  private final SpringEgarantContractService springService;
 
   @GetMapping("/finish")
   public String parseConsumer2() {
@@ -40,6 +42,28 @@ public class FileController {
     Map<Integer, Try<File>> map = egarantContractService.getMap();
     return map.size();
   }
+
+  @GetMapping("/spring")
+  public Integer getFilesSpring() throws Throwable {
+    Map<Integer, Try<File>> map = springService.getMapSpring();
+    return map.size();
+  }
+
+  @GetMapping("/egarant")
+  public String parseEgarant() {
+    return springService.getIdEgarant();
+  }
+
+  @GetMapping("/db")
+  public String parseDb() {
+    return springService.getIdDb();
+  }
+
+  @GetMapping("/b2b")
+  public String parseB2b() {
+    return springService.getIdB2b();
+  }
+
 
   /*
 
