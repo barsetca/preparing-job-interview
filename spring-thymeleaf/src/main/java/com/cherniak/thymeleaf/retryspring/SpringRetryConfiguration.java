@@ -19,7 +19,7 @@ import org.springframework.retry.support.RetryTemplate;
 
 
 @Configuration
-@EnableRetry
+//@EnableRetry
 public class SpringRetryConfiguration {
 
 
@@ -38,14 +38,14 @@ public class SpringRetryConfiguration {
 
   @Bean("retryEgarant")
   public RetryTemplate retryTemplateEgarant(SpringEgarantConf conf) {
-    FixedBackOffPolicy backOffPolicy = new FixedBackOffPolicy();
+    var backOffPolicy = new FixedBackOffPolicy();
     backOffPolicy.setBackOffPeriod(conf.getRetries().getInitialDelay().toMillis());
-    RetryListener listener = new RetryListenerSupport() {
+    var listener = new RetryListenerSupport() {
       @Override
       public <T, E extends Throwable> void onError(RetryContext context,
           RetryCallback<T, E> callback, Throwable throwable) {
-//        System.out.println("Интервал = " + backOffPolicy.getBackOffPeriod() + " ms");
-//        System.out.println("№ текущей попытки = " + context.getRetryCount());
+        System.out.println("Интервал = " + backOffPolicy.getBackOffPeriod() + " ms");
+        System.out.println("№ текущей попытки = " + context.getRetryCount());
         if (context.getRetryCount() * conf.getRetries().getInitialDelay().toMillis() >= conf
             .getRetries().getTransitionTime().toMillis()) {
           backOffPolicy.setBackOffPeriod(conf.getRetries().getLongDelay().toMillis());
@@ -86,7 +86,7 @@ public class SpringRetryConfiguration {
   @Bean("retryDb")
   public RetryTemplate retryTemplateDb(
       @Value("${inner-db.retries.delay:10s}") Duration delay,
-      @Value("${inner-db.retries.times:1}") int times
+      @Value("${inner-db.retries.tries:2}") int tries
   ) {
 
 //    Map<Class<? extends Throwable>, Boolean> retryableExceptions = new HashMap<>();
@@ -99,7 +99,7 @@ public class SpringRetryConfiguration {
 //    template.setBackOffPolicy(backOffPolicy);
     return RetryTemplate.builder()
         .retryOn(TransientDataAccessException.class)
-        .maxAttempts(times + 1)
+        .maxAttempts(tries)
         .fixedBackoff(delay.toMillis())
         .build();
   }

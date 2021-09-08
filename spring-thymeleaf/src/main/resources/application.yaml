@@ -62,6 +62,8 @@ diasoft-db:
 inner-db:
   retries:
     delay: 10s
+    delayms: 10000
     tries: 2147483647
+
 
 #    delay: 30s

@@ -1,0 +1,158 @@
+import de.hybris.platform.catalog.model.CatalogUnawareMediaModel
+import de.hybris.platform.category.CategoryService
+import de.hybris.platform.category.model.CategoryModel
+import de.hybris.platform.core.model.media.MediaModel
+import de.hybris.platform.core.model.product.ProductModel
+import de.hybris.platform.servicelayer.media.MediaService
+import de.hybris.platform.servicelayer.model.ModelService
+import de.hybris.platform.servicelayer.search.FlexibleSearchQuery
+import de.hybris.platform.servicelayer.search.FlexibleSearchService
+import de.hybris.platform.servicelayer.search.SearchResult
+import de.hybris.platform.servicelayer.time.TimeService
+import de.hybris.platform.util.CSVWriter
+import de.hybris.platform.variants.model.VariantProductModel
+import io.swagger.models.auth.In
+import org.apache.commons.io.IOUtils
+import org.apache.commons.lang.StringUtils
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+import ru.shoppinglive.core.model.ApparelProductModel
+import ru.shoppinglive.core.model.MarketingCollectionModel
+
+import java.text.SimpleDateFormat
+
+final Logger LOG = LoggerFactory.getLogger('Export products descriptions GROOVY');
+
+char FIELD_SEPARATOR = ';'
+char TEXT_SEPARATOR = '"'
+List<String> headerFields = Arrays.asList("code", "name","categoryName","categoryId","urlImage");
+
+
+TimeService timeService=spring.getBean "timeService"
+ModelService modelService = spring.getBean "modelService"
+MediaService mediaService = spring.getBean "mediaService"
+
+
+String DATE_PATTERN = "dd.MM.yyyy_HH:mm:ss"
+SimpleDateFormat simpleDateFormat = new SimpleDateFormat(DATE_PATTERN);
+String date = simpleDateFormat.format(timeService.getCurrentTime());
+
+fileName = "Products_descriptions_" + date;
+fileExt = ".csv";
+
+
+
+def outputStream = new ByteArrayOutputStream();
+
+// write UTF-8 BOM
+outputStream.write(0xef)
+outputStream.write(0xbb)
+outputStream.write(0xbf)
+
+CSVWriter csvWriter = new CSVWriter(outputStream, "UTF-8")
+csvWriter.setFieldseparator(FIELD_SEPARATOR);
+csvWriter.setTextseparator(TEXT_SEPARATOR)
+csvWriter.writeSrcLine(StringUtils.join(headerFields, FIELD_SEPARATOR));
+
+
+
+Map <String,Integer> categoryMap=new HashMap<>();
+CategoryService bean = spring.getBean(CategoryService.class)
+
+CategoryModel category = bean.getCategory("root");
+
+categoryInfo(categoryMap,category,0)
+
+void  categoryInfo(Map <String,Integer> map,CategoryModel category,int level){
+if(category.class.name=="de.hybris.platform.category.model.CategoryModel"){
+map.put(category.code,level)
+category.getCategories().forEach({
+categoryInfo(map,it,level+1)
+})}
+}
+
+
+
+
+
+final String QUERY_STRING = "SELECT {product.pk} FROM {ApparelProduct! as product  join CatalogVersion as cv on {cv.pk} = {product.catalogVersion}  join ArticleApprovalStatus as aStatus on {aStatus.pk} = {product.approvalStatus} }   WHERE {cv.version} = 'Online' AND {aStatus.code} = 'approved'"
+FlexibleSearchQuery query;
+query = new FlexibleSearchQuery(QUERY_STRING);
+int bs=1000
+FlexibleSearchService ffs =spring.getBean "flexibleSearchService"
+query.setCount(bs);
+int count =0
+SearchResult<ApparelProductModel> result;
+while (true) {
+query.setStart(count)
+result = ffs.search(query);
+if (result.getCount() == 0 || (count >= bs * 200)) {
+break;
+}
+count = count + bs
+
+//берем базовый продукт
+for (ProductModel model in result.getResult()) {
+Integer b=getAnyStock(model.code,ffs)
+// println b
+if(b>0) {
+Map<Integer, String> lineMap = new HashMap<>();
+lineMap.put(0, model.code);
+lineMap.put(1, model.getName(Locale.forLanguageTag("ru")));
+
+
+def categoryProduct=null;
+Integer maxDepth = 0;
+model.getSupercategories().forEach {
+
+
+Integer currentDepth = categoryMap.get(it.code);
+
+if (currentDepth != null && currentDepth > maxDepth) {
+categoryProduct = it;
+maxDepth = currentDepth;
+}
+}
+
+if (categoryProduct != null) {
+lineMap.put(2, categoryProduct.getName(Locale.forLanguageTag("ru")));
+lineMap.put(3, categoryProduct.getCode());
+} else {
+lineMap.put(2, "");
+lineMap.put(3, "")
+}
+
+if (model.getPicture() != null) {
+lineMap.put(4, "https:" + model.getPicture().getURL());
+} else {
+
+lineMap.put(4, "");
+}
+//  println lineMap.toString()
+csvWriter.write(lineMap);
+}
+
+}
+
+}
+csvWriter.close()
+def csvContent = outputStream.toString("UTF-8");
+//println csvContent
+outputStream.close()
+
+CatalogUnawareMediaModel media = modelService.create(CatalogUnawareMediaModel.class);
+media.setFolder(mediaService.getFolder("report"))
+media.setCode(fileName + count+fileExt);
+media.setRealFileName(media.getCode());
+modelService.save(media);
+mediaService.setStreamForMedia(media, new DataInputStream(IOUtils.toInputStream(csvContent, "UTF8")));
+return media.getCode();
+Integer getAnyStock(String baseProductCode,FlexibleSearchService ffs) {
+FlexibleSearchQuery fQuery = new FlexibleSearchQuery("SELECT sum({available}) FROM {StockLevel} WHERE {productCode} like ?productCode");
+
+fQuery.addQueryParameter("productCode", baseProductCode+"%");
+fQuery.setResultClassList(Arrays.asList(Integer.class));
+SearchResult<Object> search = ffs.search(fQuery);
+List<Object> list=search.getResult()
+return (Integer)list.get(0);
+}

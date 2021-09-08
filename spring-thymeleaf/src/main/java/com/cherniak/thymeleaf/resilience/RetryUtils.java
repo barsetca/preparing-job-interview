@@ -8,10 +8,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import lombok.experimental.UtilityClass;
+import org.springframework.retry.support.RetryTemplate;
 
 @UtilityClass
 public class RetryUtils {
   private final Map<String, Retry> cachedRetries = Collections.synchronizedMap(new HashMap<>());
+  private final Map<String, RetryTemplate> cachedRetryTemplates = Collections.synchronizedMap(new HashMap<>());
 
   public Retry noop(String name) {
     return cachedRetries.computeIfAbsent(
@@ -25,4 +27,10 @@ public class RetryUtils {
         }
     );
   }
+
+  public RetryTemplate noopSpring(String name, RetryTemplate retryTemplate) {
+    cachedRetryTemplates.putIfAbsent(name, retryTemplate);
+    return cachedRetryTemplates.get(name);
+  }
+
 }

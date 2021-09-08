@@ -133,14 +133,14 @@ public class EgarantConfiguration {
   @Bean
   Retry databaseRetry(
       @Value("${inner-db.retries.delay:10s}") Duration delay,
-      @Value("${inner-db.retries.times:1}") int times
+      @Value("${inner-db.retries.tries:2}") int tries
   ) {
     System.out.println("@Value inner-db.retries.delay:10s = " + delay);
-    System.out.println("inner-db.retries.times:1 = " + times);
+    System.out.println("inner-db.retries.tries:1 = " + tries);
     return Retry.of(
         "db",
         RetryConfig.custom()
-            .maxAttempts(times + 1) //1
+            .maxAttempts(tries) //1
             .waitDuration(delay)
             .retryExceptions(TransientDataAccessException.class)
             .build()
